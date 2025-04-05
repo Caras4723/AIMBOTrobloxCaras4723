@@ -1,0 +1,98 @@
+local Players = game:GetService("Players")
+local UIS = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+
+local localPlayer = Players.LocalPlayer
+local mouse = localPlayer:GetMouse()
+
+-- Настройки модификаций
+local SPEED_MULTIPLIER = 3
+local JUMP_MULTIPLIER = 3
+local AIM_RADIUS = 100  -- Радиус круга прицеливания
+
+-- Ускорение игрока
+if localPlayer.Character then
+    local humanoid = localPlayer.Character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.WalkSpeed = humanoid.WalkSpeed * SPEED_MULTIPLIER
+        humanoid.JumpPower = humanoid.JumpPower * JUMP_MULTIPLIER
+    end
+end
+
+-- Создание GUI элементов
+local gui = Instance.new("ScreenGui")
+gui.Name = "HackGUI"
+gui.ResetOnSpawn = false
+
+local aimCircle = Instance.new("Frame")
+aimCircle.Size = UDim2.new(0, AIM_RADIUS*2, 0, AIM_RADIUS*2)
+aimCircle.Position = UDim2.new(0.5, -AIM_RADIUS, 0.5, -AIM_RADIUS)
+aimCircle.BackgroundTransparency = 1
+aimCircle.ZIndex = 10
+
+-- Анимация обводки
+local stroke = Instance.new("UIStroke")
+stroke.Thickness = 5
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.LineJoinMode = Enum.LineJoinMode.Round
+stroke.Transparency = 0.5
+stroke.Parent = aimCircle
+
+local hue = 0
+RunService.Heartbeat:Connect(function(dt)
+    hue = (hue + dt) % 1
+    stroke.Color = Color3.fromHSV(hue, 1, 1)
+end)
+
+aimCircle.Parent = gui
+gui.Parent = localPlayer:WaitForChild("PlayerGui")
+
+-- AIM BOT логика
+local function findTarget()
+    local camera = workspace.CurrentCamera
+    local characters = {}
+    
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            if humanoid and humanoid.Health > 0 then
+                table.insert(characters, player.Character)
+            end
+        end
+    end
+    
+    local mousePos = Vector2.new(mouse.X, mouse.Y)
+    local closest = nil
+    local minDist = math.huge
+    
+    for _, char in pairs(characters) do
+        local head = char:FindFirstChild("Head")
+        if head then
+            local screenPos, visible = camera:WorldToScreenPoint(head.Position)
+            if visible then
+                local screenVec = Vector2.new(screenPos.X, screenPos.Y)
+                local distance = (screenVec - mousePos).Magnitude
+                
+                if distance < AIM_RADIUS and distance < minDist then
+                    closest = head
+                    minDist = distance
+                end
+            end
+        end
+    end
+    
+    return closest
+end
+
+UIS.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        while input.UserInputState == Enum.UserInputState.Begin do
+            wait()
+            local target = findTarget()
+            if target then
+                local camera = workspace.CurrentCamera
+                camera.CFrame = CFrame.new(camera.CFrame.Position, target.Position)
+            end
+        end
+    end
+end)
